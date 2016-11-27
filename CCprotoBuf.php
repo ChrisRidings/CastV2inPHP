@@ -2,14 +2,6 @@
 
 // Class to represent a protobuf object for a command.
 
-//$c = new CastMessage();
-//$c->source_id = "0000000000";
-//$c->receiver_id = "receiver-0";
-//$c->namespace = "urn:x-cast:com.google.cast.tp.connection";
-//$c->payloadtype = 0;
-//$c->payloadutf8 = '{\"type\":\"CONNECT\"}';
-//echo $c->encode();
-
 class CastMessage {
 
 	public $protocolversion = 0; // CASTV2_1_0 - It's always this
