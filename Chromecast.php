@@ -91,16 +91,16 @@ class Chromecast
 		return $response;
 	}
 
-	public function show($url) {
+	public function sendMessage($urn,$message) {
 		// Request the app to show the given url (of a picture
 		// or a chromecast compatible video)
 
 		$c = new CastMessage();
                 $c->source_id = "0000000000";
                 $c->receiver_id = $this->transportid;
-		$c->namespace = "urn:x-cast:com.chrisridings.piccastr";
+		$c->namespace = $urn;
                 $c->payloadtype = 0;
-                $c->payloadutf8 = $url;
+                $c->payloadutf8 = $message;
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
 		$this->requestId++;

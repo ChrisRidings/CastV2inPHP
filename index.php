@@ -26,11 +26,12 @@ $cc->connect();
 
 // Send the URL
 // $cc->show("http://writm.com/wp-content/uploads/2016/08/Cat-hd-wallpapers.jpg");
-$cc->show("http://distribution.bbb3d.renderfarming.net/video/mp4/bbb_sunflower_1080p_30fps_normal.mp4");
+$cc->sendMessage("urn:x-cast:com.chrisridings.piccastr","http://distribution.bbb3d.renderfarming.net/video/mp4/bbb_sunflower_1080p_30fps_normal.mp4");
 
 // Keep the connection alive with heartbeat
 while (1==1) {
 	$cc->pingpong();
+	sleep(10);
 }
 
 ?>

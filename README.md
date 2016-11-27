@@ -20,7 +20,7 @@ while (!preg_match("/Application status is ready/s",$response)) {
 $cc->connect();
 
 // Send the URL
-$cc->show("http://distribution.bbb3d.renderfarming.net/video/mp4/bbb_sunflower_1080p_30fps_normal.mp4");
+$cc->sendMessage("urn:x-cast:com.chrisridings.piccastr","http://distribution.bbb3d.renderfarming.net/video/mp4/bbb_sunflower_1080p_30fps_normal.mp4");
 
 // Keep the connection alive with heartbeat
 while (1==1) {
