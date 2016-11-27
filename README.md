@@ -4,6 +4,7 @@ Functions to control a Chromecast with PHP using a reverse engineered Castv2 pro
 
 ## Code Example
 
+```php
 // Create Chromecast object and give IP and Port
 $cc = new Chromecast("217.63.63.259","7019");
 
@@ -25,7 +26,9 @@ $cc->sendMessage("urn:x-cast:com.chrisridings.piccastr","http://distribution.bbb
 // Keep the connection alive with heartbeat
 while (1==1) {
         $cc->pingpong();
+	sleep(10);
 }
+```
 
 ## NOTES
 
