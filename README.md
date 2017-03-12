@@ -6,7 +6,7 @@ Functions to control a Chromecast with PHP using a reverse engineered Castv2 pro
 
 ```php
 // Create Chromecast object and give IP and Port
-$cc = new Chromecast("217.63.63.259","7019");
+$cc = new Chromecast("217.63.63.259","8009");
 
 // Launch the Chromecast App
 $cc->launch("87087D10");
@@ -30,6 +30,15 @@ while (1==1) {
 }
 ```
 
+Connect to existing running app
+
+```php
+$cc = new Chromecast("217.63.63.259","8009");
+$cc->cc_connect();
+$cc->getStatus();
+$cc->connect();
+```
+
 ## NOTES
 
 Because this project is primarily intended to run from servers to a remote Chromecast on a different network (e.g. your TV at home), there's no discovery. You need to know the IP of your Chromecast (Chromecasts use mdns for announcement so you can use dns-sd to find it if you don't know). The default port a Chromecast uses is 8009.
@@ -43,5 +52,6 @@ This is only the functional beginnings of this project. For example: notable thi
 1. Handle binary payloads when encoding to protobuf
 2. Protobuf decoding to message objects
 3. Handle ping/pings properly
+4. mdns device discovery (maybe)
 
 Feel free to help out!
