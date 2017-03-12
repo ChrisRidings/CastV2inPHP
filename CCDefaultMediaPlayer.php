@@ -6,6 +6,7 @@ class CCDefaultMediaPlayer
 {
 	
 	public $chromecast; // The chromecast the initiated this instance.
+	public $mediaid; // The media session id.
 	
 	public function __construct($hostchromecast) {
 		$this->chromecast = $hostchromecast;
@@ -39,8 +40,8 @@ class CCDefaultMediaPlayer
 		}
 	}
 	
-	public function playVideo($url,$streamType,$contentType,$autoPlay,$currentTime) {
-		// Start a video playing
+	public function play($url,$streamType,$contentType,$autoPlay,$currentTime) {
+		// Start a playing
 		// First ensure there's an instance of the DMP running
 		$this->launch();
 		$json = '{"type":"LOAD","media":{"contentId":"' . $url . '","streamType":"' . $streamType . '","contentType":"' . $contentType . '"},"autoplay":' . $autoPlay . ',"currentTime":' . $currentTime . ',"requestId":921489134}';
@@ -48,12 +49,48 @@ class CCDefaultMediaPlayer
 		$r = "";
 		while (!preg_match("/\"playerState\":\"PLAYING\"/",$r)) {
 			$r = $this->chromecast->getCastMessage();
-			// If this is a ping, then pong
-			//if (preg_match("/urn:x-cast:com.google.cast.tp.heartbeat/",$r) && preg_match("/\"PING\"/",$r)) {
-			//	$this->chromecast->pong();
-			//}
 			sleep(1);
 		}
+		// Grab the mediaSessionId
+		preg_match("/\"mediaSessionId\":([^\,]*)/",$r,$m);
+		$this->mediaid = $m[1];
+	}
+	
+	public function pause() {
+		// Pause
+		$this->launch(); // Auto-reconnects
+		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.media",'{"type":"PAUSE", "mediaSessionId":' . $this->mediaid . ', "requestId":1}');
+		$this->chromecast->getCastMessage();
+	}
+
+	public function restart() {
+		// Restart (after pause)
+		$this->launch(); // Auto-reconnects
+		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.media",'{"type":"PLAY", "mediaSessionId":' . $this->mediaid . ', "requestId":1}');
+		$this->chromecast->getCastMessage();
+	}
+	
+	public function seek($secs) {
+		// Seek
+		$this->launch(); // Auto-reconnects
+		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.media",'{"type":"SEEK", "mediaSessionId":' . $this->mediaid . ', "currentTime":' . $secs . ',"requestId":1}');
+		$this->chromecast->getCastMessage();
+	}
+	
+	public function stop() {
+		// Stop
+		$this->launch(); // Auto-reconnects
+		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.media",'{"type":"STOP", "mediaSessionId":' . $this->mediaid . ', "requestId":1}');
+		$this->chromecast->getCastMessage();
+	}
+	
+	public function getStatus() {
+		// Stop
+		$this->launch(); // Auto-reconnects
+		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.media",'{"type":"GET_STATUS", "mediaSessionId":' . $this->mediaid . ', "requestId":1}');
+		$r = $this->chromecast->getCastMessage();
+		preg_match("/{\"type.*/",$r,$m);
+		return json_decode($m[0]);
 	}
 	
 	public function Mute() {
@@ -67,6 +104,13 @@ class CCDefaultMediaPlayer
 		// Mute a video
 		$this->launch(); // Auto-reconnects
 		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.receiver", '{"type":"SET_VOLUME", "volume": { "muted": false }, "requestId":1 }');
+		$this->chromecast->getCastMessage();
+	}
+	
+	public function SetVolume($volume) {
+		// Mute a video
+		$this->launch(); // Auto-reconnects
+		$this->chromecast->sendMessage("urn:x-cast:com.google.cast.receiver", '{"type":"SET_VOLUME", "volume": { "level": ' . $volume . ' }, "requestId":1 }');
 		$this->chromecast->getCastMessage();
 	}
 }
