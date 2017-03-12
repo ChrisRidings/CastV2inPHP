@@ -32,11 +32,9 @@ class CCDefaultMediaPlayer
 			$r = "";
 			while (!preg_match("/Ready to Cast/",$r) && !preg_match("/Default Media Receiver/",$r)) {
 				$r = $this->chromecast->getStatus();
-				//if (preg_match("/urn:x-cast:com.google.cast.tp.heartbeat/",$r) && preg_match("/\"PING\"/",$r)) {
-			//		$this->chromecast->pong();
-				//}
 				sleep(1);
 			}
+			$this->chromecast->connect();
 		}
 	}
 	
