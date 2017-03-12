@@ -20,13 +20,13 @@ class CCBaseSender {
 		// Grab the appid
 		preg_match("/\"appId\":\"([^\"]*)/",$s,$m);
 		$appid = $m[1];
-		if ($appid == "CC1AD845") {
+		if ($appid == $this->appid) {
 			// Default Media Receiver is live
 			$this->chromecast->getStatus();
 			$this->chromecast->connect();
 		} else {
 			// Default Media Receiver is not currently live, start it.
-			$this->chromecast->launch("CC1AD845");
+			$this->chromecast->launch($this->appid);
 			$this->chromecast->transportid = "";
 			$r = "";
 			while (!preg_match("/Ready to Cast/",$r) && !preg_match("/Default Media Receiver/",$r)) {

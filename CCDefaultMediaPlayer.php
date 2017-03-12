@@ -6,6 +6,7 @@ require_once("CCBaseSender.php");
 
 class CCDefaultMediaPlayer extends CCBaseSender
 {
+	public $appid="CC1AD845";
 	
 	public function play($url,$streamType,$contentType,$autoPlay,$currentTime) {
 		// Start a playing
