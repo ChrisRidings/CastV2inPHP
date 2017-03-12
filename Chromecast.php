@@ -130,11 +130,14 @@ class Chromecast
 	public function sendMessage($urn,$message) {
 		// Send the given message to the given urn
 		$c = new CastMessage();
-                $c->source_id = "sender-0";
-                $c->receiver_id = $this->transportid;
+		$c->source_id = "sender-0";
+        $c->receiver_id = $this->transportid;
+		// Override - if the $urn is urn:x-cast:com.google.cast.receiver then
+		// send to receiver-0 and not the running app
+		if ($urn == "urn:x-cast:com.google.cast.receiver") { $c->receiver_id = "receiver-0"; }
 		$c->urnnamespace = $urn;
-                $c->payloadtype = 0;
-                $c->payloadutf8 = $message;
+        $c->payloadtype = 0;
+        $c->payloadutf8 = $message;
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
 		$this->requestId++;
