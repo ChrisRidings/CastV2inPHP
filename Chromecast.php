@@ -56,7 +56,8 @@ class Chromecast
 
 		// CONNECT
 		$this->cc_connect();
-
+		
+		$this->getStatus();
 		
 		// LAUNCH
 		$c = new CastMessage();
@@ -69,10 +70,11 @@ class Chromecast
 		fflush($this->socket);
 		$this->requestId++;
 
-		while ($this->transportid == "") {
-			$this->getCastMessage();
+		$oldtransportid = $this->transportid;
+		while ($this->transportid == "" || $this->transportid == $oldtransportid) {
+			$r = $this->getCastMessage();
+			sleep(1);
 		}
-		
 	}
 	
 	
@@ -131,13 +133,14 @@ class Chromecast
 		// Send the given message to the given urn
 		$c = new CastMessage();
 		$c->source_id = "sender-0";
-        $c->receiver_id = $this->transportid;
+		$c->receiver_id = $this->transportid;
 		// Override - if the $urn is urn:x-cast:com.google.cast.receiver then
 		// send to receiver-0 and not the running app
 		if ($urn == "urn:x-cast:com.google.cast.receiver") { $c->receiver_id = "receiver-0"; }
+		if ($urn == "urn:x-cast:com.google.cast.tp.connection") { $c->receiver_id = "receiver-0"; }
 		$c->urnnamespace = $urn;
-        $c->payloadtype = 0;
-        $c->payloadutf8 = $message;
+		$c->payloadtype = 0;
+		$c->payloadutf8 = $message;
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
 		$this->requestId++;
@@ -161,6 +164,19 @@ class Chromecast
 		$response = $this->getCastMessage();
 	}
 
+	public function pong() {
+		// To answer a pingpong
+		$c = new CastMessage();
+                $c->source_id = "sender-0";
+                $c->receiver_id = "receiver-0";
+                $c->urnnamespace = "urn:x-cast:com.google.cast.tp.heartbeat";
+                $c->payloadtype = 0;
+                $c->payloadutf8 = '{"type":"PoNG"}';
+                fwrite($this->socket, $c->encode());
+                fflush($this->socket);
+                $this->requestId++;
+		$response = $this->getCastMessage();
+	}
 
 }
 
