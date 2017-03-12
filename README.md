@@ -4,6 +4,8 @@ Functions to control a Chromecast with PHP using a reverse engineered Castv2 pro
 
 ## Code Example
 
+Custom Receiver - Launch App
+
 ```php
 // Create Chromecast object and give IP and Port
 $cc = new Chromecast("217.63.63.259","8009");
@@ -30,13 +32,42 @@ while (1==1) {
 }
 ```
 
-Connect to existing running app
+Custom Receiver - Connect to existing running app
 
 ```php
 $cc = new Chromecast("217.63.63.259","8009");
 $cc->cc_connect();
 $cc->getStatus();
 $cc->connect();
+```
+
+Or use the Default Media Player
+
+```php
+require_once("Chromecast.php");
+
+// Create Chromecast object and give IP and Port
+$cc = new Chromecast("217.63.63.259","8009");
+
+$cc->DMP->play("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4","BUFFERED","video/mp4",true,0);
+$cc->DMP->UnMute();
+$cc->DMP->SetVolume(1);
+sleep(5);
+$cc->DMP->pause();
+print_r($cc->DMP->getStatus());
+sleep(5);
+$cc->DMP->restart();
+sleep(5);
+$cc->DMP->seek(100);
+sleep(5);
+$cc->DMP->SetVolume(0.5);
+sleep(15);
+$cc->DMP->SetVolume(1); // Turn the volume back up
+$cc->DMP->Mute();
+sleep(20);
+$cc->DMP->UnMute();
+sleep(5);
+$cc->DMP->Stop();
 ```
 
 ## NOTES
