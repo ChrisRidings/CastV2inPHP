@@ -1,6 +1,7 @@
 <?php
 
 require_once("CCprotoBuf.php");
+require_once("CCDefaultMediaPlayer.php");
 
 class Chromecast
 {
@@ -8,10 +9,14 @@ class Chromecast
 	// Sends a picture or a video to a Chromecast using reverse
 	// engineered castV2 protocol
 
-	private $socket; // Socket to the Chromecast
+	public $socket; // Socket to the Chromecast
 	public $requestId = 1; // Incrementing request ID parameter
 	public $transportid = ""; // The transportid of our connection
 	public $sessionid = ""; // Session id for any media sessions
+	public $DMP; // Represents an instance of the Default Media Player.
+	public $lastip = ""; // Store the last connected IP
+	public $lastport; // Store the last connected port
+	public $lastactivetime; // store the time we last did something
 
 	public function __construct($ip, $port) {
 
@@ -32,14 +37,45 @@ class Chromecast
 		} else {
 			throw new Exception("Failed to connect to remote Chromecast");
 		}
+		
+		$this->lastip = $ip;
+		$this->lastport = $port;
+		
+		$this->lastactivetime = time();
+		
+		// Create an instance of the DMP for this CCDefaultMediaPlayer
+		$this->DMP = new CCDefaultMediaPlayer($this);
 	}
 	
-	function cc_connect() {
+	function testLive() {
+		// If there is a difference of 10 seconds or more between $this->lastactivetime and the current time, then we've been kicked off and need to reconnect
+		if ($this->lastip == "") { return; }
+		$diff = time() - $this->lastactivetime;
+		if ($diff > 9) {
+			// Reconnect
+			$contextOptions = [
+			'ssl' => [
+				'verify_peer' => false,
+				'verify_peer_name' => false,
+				]
+			];
+			$context = stream_context_create($contextOptions);
+			if ($this->socket = stream_socket_client('ssl://' . $this->lastip . ":" . $this->lastport, $errno, $errstr, 30, STREAM_CLIENT_CONNECT, $context)) {
+			} else {
+				throw new Exception("Failed to connect to remote Chromecast");
+			}
+			$this->cc_connect(1);
+			$this->connect(1);
+		}
+	}
+	
+	function cc_connect($tl=0) {
 		// CONNECT TO CHROMECAST
 		// This connects to the chromecast in general.
 		// Generally this is called by launch($appid) automatically upon launching an app
 		// but if you want to connect to an existing running application then call this first,
 		// then call getStatus() to make sure you get a transportid.
+		if ($tl == 0) { $this->testLive(); };
 		$c = new CastMessage();
 		$c->source_id = "sender-0";
 		$c->receiver_id = "receiver-0";
@@ -48,6 +84,7 @@ class Chromecast
 		$c->payloadutf8 = '{"type":"CONNECT"}';
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
+		$this->lastactivetime = time();
 	}
 	
 	public function launch($appid) {
@@ -68,6 +105,7 @@ class Chromecast
                 $c->payloadutf8 = '{"type":"LAUNCH","appId":"' . $appid . '","requestId":' . $this->requestId . '}';
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
+		$this->lastactivetime = time();
 		$this->requestId++;
 
 		$oldtransportid = $this->transportid;
@@ -81,14 +119,16 @@ class Chromecast
 	function getStatus() {
 		// Get the status of the chromecast in general and return it
 		// also fills in the transportId of any currently running app
+		$this->testLive();
 		$c = new CastMessage();
 		$c->source_id = "sender-0";
                 $c->receiver_id = "receiver-0";
                 $c->urnnamespace = "urn:x-cast:com.google.cast.receiver";
                 $c->payloadtype = 0;
                 $c->payloadutf8 = '{"type":"GET_STATUS","requestId":' . $this->requestId . '}';
-		fwrite($this->socket, $c->encode());
+		$c = fwrite($this->socket, $c->encode());
 		fflush($this->socket);
+		$this->lastactivetime = time();
 		$this->requestId++;
 		$r = "";
 		while ($this->transportid == "") {
@@ -97,9 +137,10 @@ class Chromecast
 		return $r;
 	}
 
-	function connect() {
+	function connect($tl = 0) {
 	// This connects to the transport of the currently running app
 	// (you need to have launched it yourself or connected and got the status)
+	if ($tl == 0) { $this->testLive(); };
 	$c = new CastMessage();
                 $c->source_id = "sender-0";
                 $c->receiver_id = $this->transportid;
@@ -108,6 +149,7 @@ class Chromecast
                 $c->payloadutf8 = '{"type":"CONNECT"}';
                 fwrite($this->socket, $c->encode());
                 fflush($this->socket);
+				$this->lastactivetime = time();
                 $this->requestId++;
 	}
 
@@ -116,7 +158,13 @@ class Chromecast
 		// Later on we could update CCprotoBuf to decode this
 		// but for now all we need is the transport id  and session id if it is
 		// in the packet and we can read that directly.
+		$this->testLive();
 		$response = fread($this->socket, 2000);
+		while (preg_match("/urn:x-cast:com.google.cast.tp.heartbeat/",$response) && preg_match("/\"PING\"/",$response)) {
+			$this->pong();
+			sleep(3);
+			$response = fread($this->socket, 2000);
+		}
 		if (preg_match("/transportId/s", $response)) {
 			preg_match("/transportId\"\:\"([^\"]*)/",$response,$matches);
 			$matches = $matches[1];
@@ -131,6 +179,7 @@ class Chromecast
 
 	public function sendMessage($urn,$message) {
 		// Send the given message to the given urn
+		$this->testLive();
 		$c = new CastMessage();
 		$c->source_id = "sender-0";
 		$c->receiver_id = $this->transportid;
@@ -143,6 +192,7 @@ class Chromecast
 		$c->payloadutf8 = $message;
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
+		$this->lastactivetime = time();
 		$this->requestId++;
 		$response = $this->getCastMessage();
 		return $response;
@@ -160,6 +210,7 @@ class Chromecast
                 $c->payloadutf8 = '{"type":"PING"}';
                 fwrite($this->socket, $c->encode());
                 fflush($this->socket);
+				$this->lastactivetime = time();
                 $this->requestId++;
 		$response = $this->getCastMessage();
 	}
@@ -171,11 +222,11 @@ class Chromecast
                 $c->receiver_id = "receiver-0";
                 $c->urnnamespace = "urn:x-cast:com.google.cast.tp.heartbeat";
                 $c->payloadtype = 0;
-                $c->payloadutf8 = '{"type":"PoNG"}';
-                fwrite($this->socket, $c->encode());
-                fflush($this->socket);
+                $c->payloadutf8 = '{"type":"PONG"}';
+				fwrite($this->socket, $c->encode());
+				fflush($this->socket);
+				$this->lastactivetime = time();
                 $this->requestId++;
-		$response = $this->getCastMessage();
 	}
 
 }
