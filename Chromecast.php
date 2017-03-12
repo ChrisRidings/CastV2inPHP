@@ -9,8 +9,9 @@ class Chromecast
 	// engineered castV2 protocol
 
 	private $socket; // Socket to the Chromecast
-	private $requestId = 1; // Incrementing request ID parameter
+	public $requestId = 1; // Incrementing request ID parameter
 	public $transportid = ""; // The transportid of our connection
+	public $sessionid = ""; // Session id for any media sessions
 
 	public function __construct($ip, $port) {
 
@@ -32,26 +33,36 @@ class Chromecast
 			throw new Exception("Failed to connect to remote Chromecast");
 		}
 	}
-
+	
+	function cc_connect() {
+		// CONNECT TO CHROMECAST
+		// This connects to the chromecast in general.
+		// Generally this is called by launch($appid) automatically upon launching an app
+		// but if you want to connect to an existing running application then call this first,
+		// then call getStatus() to make sure you get a transportid.
+		$c = new CastMessage();
+		$c->source_id = "sender-0";
+		$c->receiver_id = "receiver-0";
+		$c->urnnamespace = "urn:x-cast:com.google.cast.tp.connection";
+		$c->payloadtype = 0;
+		$c->payloadutf8 = '{"type":"CONNECT"}';
+		fwrite($this->socket, $c->encode());
+		fflush($this->socket);
+	}
+	
 	public function launch($appid) {
 
 		// Launches the chromecast app on the connected chromecast
 
 		// CONNECT
-		$c = new CastMessage();
-		$c->source_id = "0000000000";
-		$c->receiver_id = "receiver-0";
-		$c->namespace = "urn:x-cast:com.google.cast.tp.connection";
-		$c->payloadtype = 0;
-		$c->payloadutf8 = '{"type":"CONNECT"}';
-		fwrite($this->socket, $c->encode());
-		fflush($this->socket);
+		$this->cc_connect();
 
+		
 		// LAUNCH
 		$c = new CastMessage();
-                $c->source_id = "0000000000";
+                $c->source_id = "sender-0";
                 $c->receiver_id = "receiver-0";
-                $c->namespace = "urn:x-cast:com.google.cast.receiver";
+                $c->urnnamespace = "urn:x-cast:com.google.cast.receiver";
                 $c->payloadtype = 0;
                 $c->payloadutf8 = '{"type":"LAUNCH","appId":"' . $appid . '","requestId":' . $this->requestId . '}';
 		fwrite($this->socket, $c->encode());
@@ -63,13 +74,34 @@ class Chromecast
 		}
 		
 	}
+	
+	
+	function getStatus() {
+		// Get the status of the chromecast in general and return it
+		// also fills in the transportId of any currently running app
+		$c = new CastMessage();
+		$c->source_id = "sender-0";
+                $c->receiver_id = "receiver-0";
+                $c->urnnamespace = "urn:x-cast:com.google.cast.receiver";
+                $c->payloadtype = 0;
+                $c->payloadutf8 = '{"type":"GET_STATUS","requestId":' . $this->requestId . '}';
+		fwrite($this->socket, $c->encode());
+		fflush($this->socket);
+		$this->requestId++;
+		$r = "";
+		while ($this->transportid == "") {
+			$r = $this->getCastMessage();
+		}
+		return $r;
+	}
 
 	function connect() {
-		// This connects to the transport
-		$c = new CastMessage();
-                $c->source_id = "0000000000";
+	// This connects to the transport of the currently running app
+	// (you need to have launched it yourself or connected and got the status)
+	$c = new CastMessage();
+                $c->source_id = "sender-0";
                 $c->receiver_id = $this->transportid;
-                $c->namespace = "urn:x-cast:com.google.cast.tp.connection";
+                $c->urnnamespace = "urn:x-cast:com.google.cast.tp.connection";
                 $c->payloadtype = 0;
                 $c->payloadutf8 = '{"type":"CONNECT"}';
                 fwrite($this->socket, $c->encode());
@@ -80,7 +112,7 @@ class Chromecast
 	public function getCastMessage() {
 		// Get the Chromecast Message/Response
 		// Later on we could update CCprotoBuf to decode this
-		// but for now all we need is the transport id if it is
+		// but for now all we need is the transport id  and session id if it is
 		// in the packet and we can read that directly.
 		$response = fread($this->socket, 2000);
 		if (preg_match("/transportId/s", $response)) {
@@ -88,33 +120,36 @@ class Chromecast
 			$matches = $matches[1];
 			$this->transportid = $matches;
 		}
+		if (preg_match("/sessionId/s", $response)) {
+			preg_match("/\"sessionId\"\:\"([^\"]*)/",$response,$r);
+			$this->sessionid = $r[1];
+		}
 		return $response;
 	}
 
 	public function sendMessage($urn,$message) {
-		// Request the app to show the given url (of a picture
-		// or a chromecast compatible video)
-
+		// Send the given message to the given urn
 		$c = new CastMessage();
-                $c->source_id = "0000000000";
+                $c->source_id = "sender-0";
                 $c->receiver_id = $this->transportid;
-		$c->namespace = $urn;
+		$c->urnnamespace = $urn;
                 $c->payloadtype = 0;
                 $c->payloadutf8 = $message;
 		fwrite($this->socket, $c->encode());
 		fflush($this->socket);
 		$this->requestId++;
-
 		$response = $this->getCastMessage();
+		return $response;
 	}
 
 	public function pingpong() {
-		// To keep the image/video displaying we have to
-		// send the heartbeat.
+		// Officially you should run this every 5 seconds or so to keep
+		// the device alive. Doesn't seem to be necessary if an app is running
+		// that doesn't have a short timeout.
 		$c = new CastMessage();
-                $c->source_id = "0000000000";
+                $c->source_id = "sender-0";
                 $c->receiver_id = "receiver-0";
-                $c->namespace = "urn:x-cast:com.google.cast.tp.heartbeat";
+                $c->urnnamespace = "urn:x-cast:com.google.cast.tp.heartbeat";
                 $c->payloadtype = 0;
                 $c->payloadutf8 = '{"type":"PING"}';
                 fwrite($this->socket, $c->encode());

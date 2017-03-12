@@ -7,12 +7,14 @@ class CastMessage {
 	public $protocolversion = 0; // CASTV2_1_0 - It's always this
 	public $source_id; // Source ID String
 	public $receiver_id; // Receiver ID String
-	public $namespace; // Namespace
+	public $urnnamespace; // Namespace
 	public $payloadtype = 0; // PayloadType String=0 Binary = 1
 	public $payloadutf8; // Payload
 
 	public function encode() {
 
+		// Deliberately represent this as a binary first (for readability and so it's obvious what's going on.
+		// speed impact doesn't really matter!)
 		$r = "";
 	
 		// First the protocol version
@@ -34,7 +36,7 @@ class CastMessage {
 		// Now the namespace
 		$r .= "00100"; // Field Number 4
 		$r .= "010"; // String
-		$r .= $this->stringToBin($this->namespace);
+		$r .= $this->stringToBin($this->urnnamespace);
 
 		// Now the payload type
 		$r .= "00101"; // Field Number 5
@@ -48,7 +50,7 @@ class CastMessage {
 		
 		// Ignore payload_binary field 7 as never used
 
-
+		// Now convert it to a binary packet
 		$hexstring = "";
 		for ($i=0; $i < strlen($r); $i=$i+8) {
 			$thischunk = substr($r,$i,8);
@@ -64,7 +66,10 @@ class CastMessage {
 	}
 
 	private function varintToBin($inval) {
+		// Convert an integer to a binary varint
 		// A variant is returned least significant part first.
+		// Number is represented in 7 bit portions. The 8th (MSB) of a byte represents if there
+		// is a following byte.
 		$r = array();
 		while ($inval / 128 > 1) {
 			$thisval = ($inval - ($inval % 128)) / 128;
@@ -86,11 +91,11 @@ class CastMessage {
 	}
 
 	private function stringToBin($string) {
-		// First the length
+		// Convert a string to a Binary string
+		// First the length (note this is a binary varint)
 		$l = strlen($string);
 		$ret = "";
-		$ret = decbin($l);
-		while (strlen($ret) < 8) { $ret = "0" . $ret; }
+		$ret = $this->varintToBin($l);
 		for ($i = 0; $i < $l; $i++) {
 			$n = decbin(ord(substr($string,$i,1)));
 			while (strlen($n) < 8) { $n = "0" . $n; }
