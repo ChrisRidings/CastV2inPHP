@@ -90,6 +90,5 @@ This is only the functional beginnings of this project. For example: notable thi
 1. Handle binary payloads when encoding to protobuf
 2. Protobuf decoding to message objects
 3. Handle ping/pings properly
-4. mdns device discovery (maybe)
 
 Feel free to help out!
