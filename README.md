@@ -70,6 +70,13 @@ sleep(5);
 $cc->DMP->Stop();
 ```
 
+Experimental - Scan for Chromecast devices using mdns
+
+```php
+require_once("Chromecast.php");
+print_r(Chromecast::scan());
+```
+
 ## NOTES
 
 Because this project is primarily intended to run from servers to a remote Chromecast on a different network (e.g. your TV at home), there's no discovery. You need to know the IP of your Chromecast (Chromecasts use mdns for announcement so you can use dns-sd to find it if you don't know). The default port a Chromecast uses is 8009.
