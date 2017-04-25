@@ -79,7 +79,7 @@ print_r(Chromecast::scan());
 
 ## NOTES
 
-Because this project is primarily intended to run from servers to a remote Chromecast on a different network (e.g. your TV at home), there's no discovery. You need to know the IP of your Chromecast (Chromecasts use mdns for announcement so you can use dns-sd to find it if you don't know). The default port a Chromecast uses is 8009.
+The default port a Chromecast uses is 8009.
 
 If sending content to your home Chromecast from an internet server, you will probably need to enable port forwarding on your router. In which case, use the IP your ISP has assigned you and the port you've chosen to forward.
 
