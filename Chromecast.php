@@ -1,5 +1,8 @@
 <?php
 
+// Chris Ridings
+// www.chrisridings.com
+
 require_once("CCprotoBuf.php");
 require_once("CCDefaultMediaPlayer.php");
 require_once("mdns.php");
@@ -47,8 +50,19 @@ class Chromecast
 		// Create an instance of the DMP for this CCDefaultMediaPlayer
 		$this->DMP = new CCDefaultMediaPlayer($this);
 	}
+        
+        public static function scan($wait=15) {
+            // Wrapper for scan
+            $c = 10;
+            $result = array("Error");
+            while ($result[0] == "Error" && $c > 0) {
+                $result = Chromecast::scansub($wait);
+                $c--;
+            }
+            return $result;
+        }
 	
-	public static function scan() {
+	public static function scansub($wait=15) {
 		// Performs an mdns scan of the network to find chromecasts and returns an array
 		// Let's test by finding Google Chromecasts
 		$mdns = new mDNS();
@@ -57,13 +71,45 @@ class Chromecast
 		$mdns->query("_googlecast._tcp.local",1,12,"");
 		$mdns->query("_googlecast._tcp.local",1,12,"");
 		$mdns->query("_googlecast._tcp.local",1,12,"");
-		$cc = 15;
+		$cc = $wait;
 		$chromecasts = array();
+                $additionalscache = array(); // Hold additionalRRs
 		while ($cc>0) {
-			$inpacket = $mdns->readIncoming();
-			//$mdns->printPacket($inpacket);
+                        $inpacket = "";
+                        $breakout = 100;
+                        while ($inpacket == "" && $breakout > 0) {
+                            $inpacket = $mdns->readIncoming();
+                            $f = 0;
+                            if ($inpacket <> "") {
+                                if ($inpacket->packetheader->getQuestions() > 0) {
+                                    $f = 0;
+                                    if ($inpacket->questions[0]->qtype==0) {
+                                        if ($inpacket->questions[0]->qclass==256) {
+                                            $breakout--;
+                                        }
+                                    }
+                                    if ($f==0) { $inpacket = ""; }
+                                }
+                            }
+                            if ($inpacket == "" || $f = 1) { 
+                                usleep(5000);
+                                $mdns->requery(); 
+                            }
+                        }
+                        // If we get here and inpacket is "" then there was an error
+                        if ($inpacket == "") {
+                            return array("Error");
+                        }
 			// If our packet has answers, then read them
+                        //$mdns->printPacket($inpacket);
+                        if ($inpacket->packetheader->getAdditionalRRS()>0) {
+                            // Loop the additional RRs for A records
+                            for ($x=0; $x < sizeof($inpacket->additionalrrs); $x++) {
+                                array_push($additionalscache, $inpacket->additionalrrs[$x]);
+                            }
+                        }
 			if ($inpacket->packetheader->getAnswerRRs()> 0) {
+                     //       $mdns->printPacket($inpacket);
 				for ($x=0; $x < sizeof($inpacket->answerrrs); $x++) {
 					if ($inpacket->answerrrs[$x]->qtype == 12) {
 						//print_r($inpacket->answerrrs[$x]);
@@ -72,9 +118,35 @@ class Chromecast
 							for ($y = 0; $y < sizeof($inpacket->answerrrs[$x]->data); $y++) {
 								$name .= chr($inpacket->answerrrs[$x]->data[$y]);
 							}
-							// The chromecast name is in $name. Send a a SRV query
-							$mdns->query($name, 1, 33, "");
-							$cc=5;
+							// The chromecast name is in $name. Send a a SRV query unless it's already in the additionalscache
+                                                        // If it is then swap the additional into the answer and cheat :-)
+                                                        $found = 0;
+                                                        for ($y=0; $y < sizeof($additionalscache); $y++) {
+                                                            if ($additionalscache[$y]->qtype==33) {
+                                                                if ($additionalscache[$y]->name==$name) {
+                                                                    $found = 1;
+                                                                    $inpacket->answerrrs[$x] = $additionalscache[$y];
+                                                                }
+                                                            }
+                                                        }
+                                                        if ($found == 0) {
+                                                            $mdns->query($name, 1, 33, "");
+                                                            $cc=$wait;
+                                                        }
+ 							// Repeat for text
+                                                        $found = 0;
+                                                        for ($y=0; $y < sizeof($additionalscache); $y++) {
+                                                            if ($additionalscache[$y]->qtype==16) {
+                                                                if ($additionalscache[$y]->name==$name) {
+                                                                    $found = 1;
+                                                                    $inpacket->answerrrs[$x] = $additionalscache[$y];
+                                                                }
+                                                            }
+                                                        }
+                                                        if ($found == 0) {
+                                                            $mdns->query($name, 1, 16, "");
+                                                            $cc=$wait;
+                                                        }
 						}
 					}
 					if ($inpacket->answerrrs[$x]->qtype == 33) {
@@ -89,11 +161,44 @@ class Chromecast
 							$target .= chr($d[$offset + $z]);
 						}
 						$target .= ".local";
-						$chromecasts[$inpacket->answerrrs[$x]->name] = array("port"=>$port, "ip"=>"", "target"=>$target);
+						$chromecasts[$inpacket->answerrrs[$x]->name] = array("port"=>$port, "ip"=>"", "target"=>$target, "friendlyname"=>"");
 						// We know the name and port. Send an A query for the IP address
-						$mdns->query($target,1,1,"");
-						$cc=5;
+                                                // or cheat and use the additionalrrs cache if it is present
+                                                $found = 0;
+                                                for ($y=0; $y < sizeof($additionalscache); $y++) {
+                                                    if ($additionalscache[$y]->qtype==1) {
+                                                        if ($additionalscache[$y]->name==$target) {
+                                                            $found = 1;
+                                                            $inpacket->answerrrs[$x] = $additionalscache[$y];
+                                                        }
+                                                    }
+                                                }
+                                                if ($found == 0) {
+                                                    $mdns->query($target,1,1,"");
+                                                    $cc=$wait;
+                                                }
 					}
+                                        if ($inpacket->answerrrs[$x]->qtype == 16) {
+                                            $fn = "";
+                                            for ($q=0; $q < sizeof($inpacket->answerrrs[$x]->data); $q++) {
+                                                $fn .= chr($inpacket->answerrrs[$x]->data[$q]);
+                                            }
+                                            $stp = strpos($fn,"fn=")+3;
+                                            $etp = strpos($fn,"ca=");
+                                            $fn = substr($fn,$stp,$etp-$stp-1);
+                                            $chromecasts[$inpacket->answerrrs[$x]->name]['friendlyname'] = $fn;
+                                            $found = 0;
+                                            for ($y=0; $y < sizeof($additionalscache); $y++) {
+                                                if ($additionalscache[$y]->qtype==1) {
+                                                    if ($additionalscache[$y]->name==$target) {
+                                                        $found = 1;
+                                                        $inpacket->answerrrs[$x] = $additionalscache[$y];
+                                                    }
+                                                }
+                                            }
+                                            $mdns->query($chromecasts[$inpacket->answerrrs[$x]->name]['target'],1,1,"");
+                                            $cc=$wait;
+                                        }
 					if ($inpacket->answerrrs[$x]->qtype == 1) {
 						$d = $inpacket->answerrrs[$x]->data;
 						$ip = $d[0] . "." . $d[1] . "." . $d[2] . "." . $d[3];
@@ -102,6 +207,11 @@ class Chromecast
 							if ($value['target'] == $inpacket->answerrrs[$x]->name) {
 								$value['ip'] = $ip;	
 								$chromecasts[$key] = $value;
+                                                                // If we have an IP address but no friendly name, try and get the friendly name again!
+                                                                if (strlen($value['friendlyname'])<1) {
+                                                                    $mdns->query($key, 1, 16, "");
+                                                                    $cc=$wait;
+                                                                }
 							}
 						}
 					}
@@ -109,7 +219,6 @@ class Chromecast
 			}
 			$cc--;
 		}
-
 		return $chromecasts;
 	}
 	
