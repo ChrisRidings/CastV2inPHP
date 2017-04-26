@@ -75,7 +75,7 @@ class Chromecast
 		$mdns->query("_googlecast._tcp.local",1,12,"");
 		$mdns->query("_googlecast._tcp.local",1,12,"");
 		$cc = $wait;
-                set_time_limt($wait * 2);
+                set_time_limit($wait * 2);
 		$chromecasts = array();
                 $additionalscache = array(); // Hold additionalRRs
 		while ($cc>0) {
@@ -136,7 +136,7 @@ class Chromecast
                                                         if ($found == 0) {
                                                             $mdns->query($name, 1, 33, "");
                                                             $cc=$wait;
-                                                            set_time_limt($wait * 2);
+                                                            set_time_limit($wait * 2);
                                                         }
  							// Repeat for text
                                                         $found = 0;
@@ -151,7 +151,7 @@ class Chromecast
                                                         if ($found == 0) {
                                                             $mdns->query($name, 1, 16, "");
                                                             $cc=$wait;
-                                                            set_time_limt($wait * 2);
+                                                            set_time_limit($wait * 2);
                                                         }
 						}
 					}
@@ -182,7 +182,7 @@ class Chromecast
                                                 if ($found == 0) {
                                                     $mdns->query($target,1,1,"");
                                                     $cc=$wait;
-                                                    set_time_limt($wait * 2);
+                                                    set_time_limit($wait * 2);
                                                 }
 					}
                                         if ($inpacket->answerrrs[$x]->qtype == 16) {
@@ -205,7 +205,7 @@ class Chromecast
                                             }
                                             $mdns->query($chromecasts[$inpacket->answerrrs[$x]->name]['target'],1,1,"");
                                             $cc=$wait;
-                                            set_time_limt($wait * 2);
+                                            set_time_limit($wait * 2);
                                         }
 					if ($inpacket->answerrrs[$x]->qtype == 1) {
 						$d = $inpacket->answerrrs[$x]->data;
@@ -219,7 +219,7 @@ class Chromecast
                                                                 if (strlen($value['friendlyname'])<1) {
                                                                     $mdns->query($key, 1, 16, "");
                                                                     $cc=$wait;
-                                                                    set_time_limt($wait * 2);
+                                                                    set_time_limit($wait * 2);
                                                                 }
 							}
 						}
