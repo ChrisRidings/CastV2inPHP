@@ -5,6 +5,7 @@
 
 require_once("CCprotoBuf.php");
 require_once("CCDefaultMediaPlayer.php");
+require_once("CCPlexPlayer.php");
 require_once("mdns.php");
 
 class Chromecast
@@ -18,6 +19,7 @@ class Chromecast
 	public $transportid = ""; // The transportid of our connection
 	public $sessionid = ""; // Session id for any media sessions
 	public $DMP; // Represents an instance of the Default Media Player.
+        public $Plex; // Represents an instance of the Plex player
 	public $lastip = ""; // Store the last connected IP
 	public $lastport; // Store the last connected port
 	public $lastactivetime; // store the time we last did something
@@ -49,6 +51,7 @@ class Chromecast
 		
 		// Create an instance of the DMP for this CCDefaultMediaPlayer
 		$this->DMP = new CCDefaultMediaPlayer($this);
+                $this->Plex = new CCPlexPlayer($this);
 	}
         
         public static function scan($wait=15) {
@@ -72,6 +75,7 @@ class Chromecast
 		$mdns->query("_googlecast._tcp.local",1,12,"");
 		$mdns->query("_googlecast._tcp.local",1,12,"");
 		$cc = $wait;
+                set_time_limt($wait * 2);
 		$chromecasts = array();
                 $additionalscache = array(); // Hold additionalRRs
 		while ($cc>0) {
@@ -132,6 +136,7 @@ class Chromecast
                                                         if ($found == 0) {
                                                             $mdns->query($name, 1, 33, "");
                                                             $cc=$wait;
+                                                            set_time_limt($wait * 2);
                                                         }
  							// Repeat for text
                                                         $found = 0;
@@ -146,6 +151,7 @@ class Chromecast
                                                         if ($found == 0) {
                                                             $mdns->query($name, 1, 16, "");
                                                             $cc=$wait;
+                                                            set_time_limt($wait * 2);
                                                         }
 						}
 					}
@@ -176,6 +182,7 @@ class Chromecast
                                                 if ($found == 0) {
                                                     $mdns->query($target,1,1,"");
                                                     $cc=$wait;
+                                                    set_time_limt($wait * 2);
                                                 }
 					}
                                         if ($inpacket->answerrrs[$x]->qtype == 16) {
@@ -198,6 +205,7 @@ class Chromecast
                                             }
                                             $mdns->query($chromecasts[$inpacket->answerrrs[$x]->name]['target'],1,1,"");
                                             $cc=$wait;
+                                            set_time_limt($wait * 2);
                                         }
 					if ($inpacket->answerrrs[$x]->qtype == 1) {
 						$d = $inpacket->answerrrs[$x]->data;
@@ -211,6 +219,7 @@ class Chromecast
                                                                 if (strlen($value['friendlyname'])<1) {
                                                                     $mdns->query($key, 1, 16, "");
                                                                     $cc=$wait;
+                                                                    set_time_limt($wait * 2);
                                                                 }
 							}
 						}
@@ -308,6 +317,7 @@ class Chromecast
 		$r = "";
 		while ($this->transportid == "") {
 			$r = $this->getCastMessage();
+                        echo "_---" . $r . "\n";
 		}
 		return $r;
 	}
@@ -339,6 +349,8 @@ class Chromecast
 			$this->pong();
 			sleep(3);
 			$response = fread($this->socket, 2000);
+                        // Wait infinitely for a packet.
+                        set_time_limit(30);
 		}
 		if (preg_match("/transportId/s", $response)) {
 			preg_match("/transportId\"\:\"([^\"]*)/",$response,$matches);
