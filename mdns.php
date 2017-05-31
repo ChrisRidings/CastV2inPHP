@@ -73,6 +73,12 @@ class mDNS {
 		return $p;
 	}
 	
+	public function load($data) {
+		$p = new DNSPacket();
+		$p->load($data);
+		return $p;
+	}
+	
 	public function printPacket($p) {
 		// Echo a summary of packet contents to the screen
 		echo "Questions: " . $p->packetheader->getQuestions() . "\n";
