@@ -1,9 +1,7 @@
 <?php
-
 // Simple MDNS query object
 // Chris Ridings
 // www.chrisridings.com
-
 class mDNS {
 	
 	private $mdnssocket; // Socket to listen to port 5353
@@ -19,7 +17,11 @@ class mDNS {
 		error_reporting(E_ERROR | E_PARSE);
 		// Create $mdnssocket, bind to 5353 and join multicast group 224.0.0.251
 		$this->mdnssocket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		socket_set_option($this->mdnssocket,SOL_SOCKET,SO_REUSEADDR, 1);
+		if ((preg_match("/OSX/",PHP_OS)) || (preg_match("/BSD/",PHP_OS))) {
+			socket_set_option($this->mdnssocket, SOL_SOCKET, SO_REUSEPORT, 1);
+		} else {
+			socket_set_option($this->mdnssocket,SOL_SOCKET,SO_REUSEADDR, 1);
+		}
 		//socket_set_option($this->mdnssocket, SOL_SOCKET, SO_BROADCAST, 1);
 		socket_set_option($this->mdnssocket, IPPROTO_IP, MCAST_JOIN_GROUP, array('group'=>'224.0.0.251', 'interface'=>0));
 		socket_set_option($this->mdnssocket, SOL_SOCKET,SO_RCVTIMEO,array("sec"=>1,"usec"=>0));
@@ -132,7 +134,6 @@ class mDNS {
 	}
 	
 }
-
 class DNSPacket {
 	// Represents and processes a DNS packet
 	public $packetheader; // DNSPacketHeader
@@ -351,11 +352,9 @@ class DNSPacket {
 		}
 		// Questions are done. Others go here.
 		// Maybe do this later, but for now we're only asking questions!
-
 		return $bytes;
 	}
 }
-
 class DNSPacketHeader {
 	// Represents the 12 byte packet header of a DNS request or response
 	private $contents; // Byte() - in reality use an array of integers here
@@ -535,13 +534,11 @@ class DNSPacketHeader {
 		$this->contents[11] = $value % 256;
 	}
 }
-
 class DNSQuestion {
 	public $name; // String
 	public $qtype; // UInt16
 	public $qclass; // UInt16
 }
-
 class DNSResourceRecord {
 	public $name; // String
 	public $qtype; // UInt16
@@ -549,5 +546,4 @@ class DNSResourceRecord {
 	public $ttl; // UInt32
 	public $data; // Byte ()
 }
-
 ?>
