@@ -17,7 +17,7 @@ class mDNS {
 		error_reporting(E_ERROR | E_PARSE);
 		// Create $mdnssocket, bind to 5353 and join multicast group 224.0.0.251
 		$this->mdnssocket = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-		if ((preg_match("/OSX/",PHP_OS)) || (preg_match("/BSD/",PHP_OS))) {
+		if (PHP_OS === "Darwin" || PHP_OS === "FreeBSD") {
 			socket_set_option($this->mdnssocket, SOL_SOCKET, SO_REUSEPORT, 1);
 		} else {
 			socket_set_option($this->mdnssocket,SOL_SOCKET,SO_REUSEADDR, 1);
